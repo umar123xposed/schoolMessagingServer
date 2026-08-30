@@ -1,9 +1,11 @@
 const crypto = require('crypto');
 const path = require('path');
 const httpStatus = require('http-status');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectsCommand } = require('@aws-sdk/client-s3');
 const config = require('../config/config');
 const ApiError = require('../utils/ApiError');
+
+const R2_DELETE_BATCH_SIZE = 1000; // S3 DeleteObjectsCommand's per-request limit
 
 const s3Client = new S3Client({
   region: 'auto',
@@ -72,6 +74,30 @@ const putObject = async (key, buffer, mimeType) => {
 };
 
 /**
+ * Delete a batch of objects from R2, chunked at R2_DELETE_BATCH_SIZE
+ * @param {string[]} keys
+ */
+const deleteObjects = async (keys) => {
+  for (let i = 0; i < keys.length; i += R2_DELETE_BATCH_SIZE) {
+    const chunk = keys.slice(i, i + R2_DELETE_BATCH_SIZE);
+    // eslint-disable-next-line no-await-in-loop
+    await s3Client.send(
+      new DeleteObjectsCommand({
+        Bucket: config.r2.bucketName,
+        Delete: { Objects: chunk.map((key) => ({ Key: key })) },
+      })
+    );
+  }
+};
+
+/**
+ * Recover the R2 object key from a stored attachment URL (the inverse of the url built in uploadAttachment)
+ * @param {string} url
+ * @returns {string}
+ */
+const extractKeyFromUrl = (url) => url.replace(`${config.r2.publicBaseUrl}/`, '');
+
+/**
  * Validate and upload an attachment, returning the metadata shape Message.attachment expects
  * @param {Object} file - multer's req.file
  * @param {string} contentType
@@ -97,5 +123,7 @@ module.exports = {
   CONTENT_TYPE_RULES,
   validateFileAgainstContentType,
   putObject,
+  deleteObjects,
+  extractKeyFromUrl,
   uploadAttachment,
 };

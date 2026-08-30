@@ -3,7 +3,7 @@ const agentRights = ['manageLabels', 'manageTemplates', 'broadcastMessage'];
 const allRoles = {
   student: [],
   agent: agentRights,
-  super_admin: [...agentRights, 'getUsers', 'manageUsers', 'pinMessage', 'manageGroupChats'],
+  super_admin: [...agentRights, 'getUsers', 'manageUsers', 'pinMessage', 'manageGroupChats', 'manageBatchDeletion'],
 };
 
 const roles = Object.keys(allRoles);

@@ -5,3 +5,4 @@ module.exports.messageController = require('./message.controller');
 module.exports.labelController = require('./label.controller');
 module.exports.templateController = require('./template.controller');
 module.exports.uploadController = require('./upload.controller');
+module.exports.adminController = require('./admin.controller');

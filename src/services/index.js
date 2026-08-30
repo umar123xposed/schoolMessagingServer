@@ -7,3 +7,4 @@ module.exports.messageService = require('./message.service');
 module.exports.labelService = require('./label.service');
 module.exports.templateService = require('./template.service');
 module.exports.uploadService = require('./upload.service');
+module.exports.batchDeletionService = require('./batchDeletion.service');

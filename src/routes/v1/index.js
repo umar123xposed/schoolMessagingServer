@@ -6,6 +6,7 @@ const messageRoute = require('./message.route');
 const labelRoute = require('./label.route');
 const templateRoute = require('./template.route');
 const uploadRoute = require('./upload.route');
+const adminRoute = require('./admin.route');
 const docsRoute = require('./docs.route');
 const config = require('../../config/config');
 
@@ -39,6 +40,10 @@ const defaultRoutes = [
   {
     path: '/uploads',
     route: uploadRoute,
+  },
+  {
+    path: '/admin',
+    route: adminRoute,
   },
 ];
 

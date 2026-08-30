@@ -5,3 +5,4 @@ module.exports.messageValidation = require('./message.validation');
 module.exports.labelValidation = require('./label.validation');
 module.exports.templateValidation = require('./template.validation');
 module.exports.uploadValidation = require('./upload.validation');
+module.exports.adminValidation = require('./admin.validation');

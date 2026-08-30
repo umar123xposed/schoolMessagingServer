@@ -68,6 +68,24 @@ describe('User routes', () => {
       expect(conversations[0].type).toBe('student_support');
     });
 
+    test('should accept batchLabel and notes for a student (used by batch deletion)', async () => {
+      await insertUsers([superAdmin]);
+      newUser.batchLabel = '2026-spring';
+      newUser.notes = 'sibling of Jane Doe';
+
+      const res = await request(app)
+        .post('/v1/users')
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .send(newUser)
+        .expect(httpStatus.CREATED);
+
+      expect(res.body.batchLabel).toBe('2026-spring');
+      expect(res.body.notes).toBe('sibling of Jane Doe');
+
+      const dbUser = await User.findById(res.body.id);
+      expect(dbUser.batchLabel).toBe('2026-spring');
+    });
+
     test('should be able to create a super_admin as well', async () => {
       await insertUsers([superAdmin]);
       newUser.role = 'super_admin';

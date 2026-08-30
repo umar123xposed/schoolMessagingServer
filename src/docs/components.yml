@@ -15,11 +15,25 @@ components:
         role:
           type: string
           enum: [student, agent, super_admin]
+        batchLabel:
+          type: string
+          description: student-only - the 6-month cohort this student belongs to
+        notes:
+          type: string
+          description: student-only - free text, e.g. sibling info
+        isOnline:
+          type: boolean
+          description: agent/super_admin-only - live presence, kept up to date by the Socket.io layer
+        lastSeenAt:
+          type: string
+          format: date-time
+          description: agent/super_admin-only
       example:
         id: 5ebac534954b54139806c112
         phoneNumber: "+15551234567"
         name: fake name
         role: student
+        batchLabel: 2026-spring
 
     Token:
       type: object
@@ -165,6 +179,71 @@ components:
         content: Thanks for reaching out, we'll get back to you shortly.
         isShared: true
         createdBy: 5ebac534954b54139806c113
+
+    BatchStorageStat:
+      type: object
+      properties:
+        batchLabel:
+          type: string
+        studentCount:
+          type: number
+        conversationCount:
+          type: number
+        messageCount:
+          type: number
+        attachmentCount:
+          type: number
+        attachmentBytes:
+          type: number
+      example:
+        batchLabel: 2026-spring
+        studentCount: 480
+        conversationCount: 480
+        messageCount: 15230
+        attachmentCount: 3110
+        attachmentBytes: 2147483648
+
+    BatchDeletionJob:
+      type: object
+      properties:
+        id:
+          type: string
+        batchLabel:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        triggeredBy:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        counts:
+          type: object
+          properties:
+            students:
+              type: number
+            conversations:
+              type: number
+            messages:
+              type: number
+            attachmentsDeleted:
+              type: number
+        error:
+          type: string
+      example:
+        id: 5ebac534954b54139806c118
+        batchLabel: 2025-fall
+        status: completed
+        triggeredBy: 5ebac534954b54139806c113
+        counts:
+          students: 480
+          conversations: 480
+          messages: 15230
+          attachmentsDeleted: 3110
 
   responses:
     DuplicatePhoneNumber:

@@ -64,11 +64,18 @@ module.exports = router;
  *               role:
  *                  type: string
  *                  enum: [student, agent, super_admin]
+ *               batchLabel:
+ *                 type: string
+ *                 description: student-only - the 6-month cohort this student belongs to (used by batch deletion)
+ *               notes:
+ *                 type: string
+ *                 description: student-only - free text, e.g. sibling info
  *             example:
  *               name: fake name
  *               phoneNumber: "+15551234567"
  *               password: password1
  *               role: student
+ *               batchLabel: 2026-spring
  *     responses:
  *       "201":
  *         description: Created
@@ -100,6 +107,11 @@ module.exports = router;
  *         schema:
  *           type: string
  *         description: User role
+ *       - in: query
+ *         name: batchLabel
+ *         schema:
+ *           type: string
+ *         description: Filter students by cohort/batch label
  *       - in: query
  *         name: sortBy
  *         schema:
@@ -213,6 +225,12 @@ module.exports = router;
  *                 format: password
  *                 minLength: 8
  *                 description: At least one number and one letter
+ *               batchLabel:
+ *                 type: string
+ *                 description: student-only - the 6-month cohort this student belongs to (used by batch deletion)
+ *               notes:
+ *                 type: string
+ *                 description: student-only - free text, e.g. sibling info
  *             example:
  *               name: fake name
  *               phoneNumber: "+15551234567"
