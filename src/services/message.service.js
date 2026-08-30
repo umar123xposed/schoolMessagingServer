@@ -2,6 +2,7 @@ const httpStatus = require('http-status');
 const mongoose = require('mongoose');
 const { Message, Conversation } = require('../models');
 const ApiError = require('../utils/ApiError');
+const appEvents = require('../utils/appEvents');
 const conversationService = require('./conversation.service');
 
 /**
@@ -24,6 +25,8 @@ const sendMessages = async (conversationId, sender, messagesInput) => {
 
   conversation.lastMessageAt = new Date();
   await conversation.save();
+
+  messages.forEach((message) => appEvents.emit('message:new', message));
 
   return messages;
 };
@@ -59,6 +62,7 @@ const pinMessage = async (messageId, user, isPinned) => {
   message.pinnedBy = isPinned ? user._id : undefined;
   message.pinnedAt = isPinned ? new Date() : undefined;
   await message.save();
+  appEvents.emit('message:pinned', message);
   return message;
 };
 
@@ -79,6 +83,7 @@ const deleteMessage = async (messageId, user) => {
   message.isDeleted = true;
   message.deletedAt = new Date();
   await message.save();
+  appEvents.emit('message:deleted', message);
   return message;
 };
 
@@ -117,6 +122,8 @@ const broadcastMessage = async (sender, body) => {
 
   const messages = await Message.create(messageBodies);
   await Conversation.updateMany({ _id: { $in: targetIds } }, { lastMessageAt: new Date() });
+
+  messages.forEach((message) => appEvents.emit('message:new', message));
 
   return messages;
 };

@@ -1,6 +1,7 @@
 const httpStatus = require('http-status');
 const { Conversation, Message } = require('../models');
 const ApiError = require('../utils/ApiError');
+const appEvents = require('../utils/appEvents');
 
 /**
  * Build the Mongo filter that determines which conversations a user may list
@@ -43,11 +44,13 @@ const assertUserCanAccessConversation = (conversation, user) => {
  * @returns {Promise<Conversation>}
  */
 const createStudentConversation = async (studentId) => {
-  return Conversation.create({
+  const conversation = await Conversation.create({
     type: 'student_support',
     studentId,
     createdBy: studentId,
   });
+  appEvents.emit('conversation:new', conversation);
+  return conversation;
 };
 
 /**
@@ -63,12 +66,14 @@ const createGroupConversation = async (creator, body) => {
   const participantIds = [...body.participantIds, creator._id].filter(
     (id, index, ids) => ids.findIndex((other) => String(other) === String(id)) === index
   );
-  return Conversation.create({
+  const conversation = await Conversation.create({
     type: 'agent_group',
     name: body.name,
     participantIds,
     createdBy: creator._id,
   });
+  appEvents.emit('conversation:group:created', conversation);
+  return conversation;
 };
 
 /**
@@ -155,8 +160,10 @@ const updateGroupConversation = async (conversationId, user, updateBody) => {
     // even for super_admin, so dropping themselves here would lock them out of what they just edited
     body.participantIds = [...body.participantIds, user._id];
   }
+  const previousParticipantIds = conversation.participantIds.map((id) => String(id));
   Object.assign(conversation, body);
   await conversation.save();
+  appEvents.emit('conversation:group:updated', { conversation, previousParticipantIds });
   return conversation;
 };
 
@@ -179,6 +186,7 @@ const deleteGroupConversation = async (conversationId, user) => {
   }
   await Message.deleteMany({ conversationId: conversation._id });
   await conversation.remove();
+  appEvents.emit('conversation:group:deleted', conversation);
   return conversation;
 };
 
