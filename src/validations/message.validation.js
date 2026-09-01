@@ -8,6 +8,7 @@ const attachmentSchema = Joi.object().keys({
   mimeType: Joi.string(),
   size: Joi.number(),
   fileName: Joi.string(),
+  duration: Joi.number().min(0), // seconds - audio/voice_note/video only
 });
 
 const messageContentSchema = Joi.object().keys({

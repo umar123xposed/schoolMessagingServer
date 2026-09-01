@@ -7,7 +7,7 @@ const uploadFile = catchAsync(async (req, res) => {
   if (!req.file) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'File is required');
   }
-  const attachment = await uploadService.uploadAttachment(req.file, req.body.contentType);
+  const attachment = await uploadService.uploadAttachment(req.file, req.body.contentType, req.body.duration);
   res.status(httpStatus.CREATED).send(attachment);
 });
 

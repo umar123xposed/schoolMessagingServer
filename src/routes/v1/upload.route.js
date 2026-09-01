@@ -44,6 +44,9 @@ module.exports = router;
  *               contentType:
  *                 type: string
  *                 enum: [image, audio, voice_note, video, pdf, file]
+ *               duration:
+ *                 type: number
+ *                 description: seconds - audio/voice_note/video only, computed client-side (e.g. the browser's Audio/Video element duration) and passed through as-is
  *               file:
  *                 type: string
  *                 format: binary

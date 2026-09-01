@@ -101,9 +101,10 @@ const extractKeyFromUrl = (url) => url.replace(`${config.r2.publicBaseUrl}/`, ''
  * Validate and upload an attachment, returning the metadata shape Message.attachment expects
  * @param {Object} file - multer's req.file
  * @param {string} contentType
- * @returns {Promise<{url: string, mimeType: string, size: number, fileName: string}>}
+ * @param {number} [duration] - seconds, audio/voice_note/video only, passed through as-is
+ * @returns {Promise<{url: string, mimeType: string, size: number, fileName: string, duration: number|undefined}>}
  */
-const uploadAttachment = async (file, contentType) => {
+const uploadAttachment = async (file, contentType, duration) => {
   validateFileAgainstContentType(file, contentType);
 
   const key = `attachments/${crypto.randomUUID()}${path.extname(file.originalname)}`;
@@ -116,6 +117,7 @@ const uploadAttachment = async (file, contentType) => {
     mimeType: file.mimetype,
     size: file.size,
     fileName: file.originalname,
+    ...(duration !== undefined && { duration }),
   };
 };
 

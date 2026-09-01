@@ -38,6 +38,20 @@ describe('Upload routes', () => {
       expect(uploadService.putObject).toHaveBeenCalledTimes(1);
     });
 
+    test('should pass through duration for a voice note', async () => {
+      await insertUsers([userOne]);
+
+      const res = await request(app)
+        .post('/v1/uploads')
+        .set('Authorization', `Bearer ${userOneAccessToken}`)
+        .field('contentType', 'voice_note')
+        .field('duration', '12.5')
+        .attach('file', Buffer.from('fake audio bytes'), { filename: 'note.ogg', contentType: 'audio/ogg' })
+        .expect(httpStatus.CREATED);
+
+      expect(res.body.duration).toBe(12.5);
+    });
+
     test('should return 400 when the file mime type does not match the declared contentType', async () => {
       await insertUsers([userOne]);
 
@@ -100,6 +114,29 @@ describe('Upload routes', () => {
         .expect(httpStatus.CREATED);
 
       expect(messageRes.body[0].attachment).toMatchObject(uploadRes.body);
+    });
+
+    test('should carry duration through from upload into the saved message for a voice note', async () => {
+      await insertUsers([userOne]);
+      await insertConversations([studentConversationOne]);
+
+      const uploadRes = await request(app)
+        .post('/v1/uploads')
+        .set('Authorization', `Bearer ${userOneAccessToken}`)
+        .field('contentType', 'voice_note')
+        .field('duration', '7.2')
+        .attach('file', Buffer.from('fake audio bytes'), { filename: 'note.ogg', contentType: 'audio/ogg' })
+        .expect(httpStatus.CREATED);
+
+      expect(uploadRes.body.duration).toBe(7.2);
+
+      const messageRes = await request(app)
+        .post(`/v1/conversations/${studentConversationOne._id}/messages`)
+        .set('Authorization', `Bearer ${userOneAccessToken}`)
+        .send({ contentType: 'voice_note', attachment: uploadRes.body })
+        .expect(httpStatus.CREATED);
+
+      expect(messageRes.body[0].attachment.duration).toBe(7.2);
     });
   });
 });

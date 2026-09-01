@@ -28,6 +28,9 @@ const messageSchema = mongoose.Schema(
       mimeType: { type: String, trim: true },
       size: { type: Number },
       fileName: { type: String, trim: true },
+      // seconds - only meaningful for audio/voice_note/video, computed client-side and
+      // passed through uploads/messages as-is (no server-side media processing)
+      duration: { type: Number },
     },
     isPinned: {
       type: Boolean,

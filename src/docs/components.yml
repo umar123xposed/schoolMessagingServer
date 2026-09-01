@@ -106,6 +106,9 @@ components:
           type: number
         fileName:
           type: string
+        duration:
+          type: number
+          description: seconds - audio/voice_note/video only, computed client-side
       example:
         url: https://pub-xxxxxxxx.r2.dev/attachments/6f1c1e1a-....jpg
         mimeType: image/jpeg
