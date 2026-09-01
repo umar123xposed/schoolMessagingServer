@@ -37,11 +37,22 @@ if (error) {
   throw new Error(`Config validation error: ${error.message}`);
 }
 
+
+const buildMongooseUrl = (rawUrl, isTest) => {
+  if (!isTest) {
+    return rawUrl;
+  }
+  const url = new URL(rawUrl);
+  const dbName = url.pathname.replace(/^\//, '');
+  url.pathname = `/${dbName}-test`;
+  return url.toString();
+};
+
 module.exports = {
   env: envVars.NODE_ENV,
   port: envVars.PORT,
   mongoose: {
-    url: envVars.MONGODB_URL + (envVars.NODE_ENV === 'test' ? '-test' : ''),
+    url: buildMongooseUrl(envVars.MONGODB_URL, envVars.NODE_ENV === 'test'),
     options: {
       useCreateIndex: true,
       useNewUrlParser: true,
