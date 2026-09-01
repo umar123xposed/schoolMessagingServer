@@ -37,7 +37,6 @@ if (error) {
   throw new Error(`Config validation error: ${error.message}`);
 }
 
-
 const buildMongooseUrl = (rawUrl, isTest) => {
   if (!isTest) {
     return rawUrl;
