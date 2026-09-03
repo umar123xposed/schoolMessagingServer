@@ -88,11 +88,19 @@ components:
         lastMessageAt:
           type: string
           format: date-time
+        lastReadAt:
+          type: string
+          format: date-time
+          description: student_support only - when any staff member last read/replied. Shared across all agents, not per-agent.
+        unreadCount:
+          type: number
+          description: student_support only - count of student messages since lastReadAt. Only present on GET responses, not a stored field clients can set.
       example:
         id: 5ebac534954b54139806c112
         type: student_support
         studentId: 5ebac534954b54139806c113
         labels: []
+        unreadCount: 2
         lastMessageAt: 2020-05-12T16:18:04.793Z
 
     Attachment:

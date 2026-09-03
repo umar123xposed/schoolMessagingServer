@@ -49,6 +49,12 @@ const deleteConversation = {
   }),
 };
 
+const markRead = {
+  params: Joi.object().keys({
+    conversationId: Joi.string().custom(objectId),
+  }),
+};
+
 module.exports = {
   getConversations,
   createGroup,
@@ -56,4 +62,5 @@ module.exports = {
   updateGroup,
   updateLabels,
   deleteConversation,
+  markRead,
 };

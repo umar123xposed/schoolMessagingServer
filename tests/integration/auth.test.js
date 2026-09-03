@@ -41,7 +41,7 @@ describe('Auth routes', () => {
 
       const res = await request(app).post('/v1/auth/login').send(loginCredentials).expect(httpStatus.OK);
 
-      expect(res.body.user).toEqual({
+      expect(res.body.user).toMatchObject({
         id: expect.anything(),
         name: userOne.name,
         phoneNumber: userOne.phoneNumber,

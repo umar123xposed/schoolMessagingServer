@@ -16,6 +16,11 @@ const createGroup = catchAsync(async (req, res) => {
 
 const getConversation = catchAsync(async (req, res) => {
   const conversation = await conversationService.getConversationAndVerifyAccess(req.params.conversationId, req.user);
+  res.send(await conversationService.attachUnreadCount(conversation));
+});
+
+const markRead = catchAsync(async (req, res) => {
+  const conversation = await conversationService.markConversationRead(req.params.conversationId, req.user);
   res.send(conversation);
 });
 
@@ -44,5 +49,6 @@ module.exports = {
   getConversation,
   updateGroup,
   updateLabels,
+  markRead,
   deleteConversation,
 };

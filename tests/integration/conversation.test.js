@@ -232,4 +232,89 @@ describe('Conversation routes', () => {
         .expect(httpStatus.FORBIDDEN);
     });
   });
+
+  describe('shared unread count', () => {
+    test('a student message raises unreadCount, and an agent reply clears it for every agent', async () => {
+      await insertUsers([userOne, agent, superAdmin]);
+      await insertConversations([studentConversationOne]);
+
+      await request(app)
+        .post(`/v1/conversations/${studentConversationOne._id}/messages`)
+        .set('Authorization', `Bearer ${userOneAccessToken}`)
+        .send([
+          { contentType: 'text', text: 'Question 1' },
+          { contentType: 'text', text: 'Question 2' },
+        ])
+        .expect(httpStatus.CREATED);
+
+      const agentListRes = await request(app)
+        .get('/v1/conversations')
+        .set('Authorization', `Bearer ${agentAccessToken}`)
+        .send()
+        .expect(httpStatus.OK);
+      expect(agentListRes.body.results[0].unreadCount).toBe(2);
+
+      // agent replies - this alone should clear the badge for every agent, not just this one
+      await request(app)
+        .post(`/v1/conversations/${studentConversationOne._id}/messages`)
+        .set('Authorization', `Bearer ${agentAccessToken}`)
+        .send({ contentType: 'text', text: 'Here is the answer' })
+        .expect(httpStatus.CREATED);
+
+      const superAdminListRes = await request(app)
+        .get('/v1/conversations')
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .send()
+        .expect(httpStatus.OK);
+      expect(superAdminListRes.body.results[0].unreadCount).toBe(0);
+    });
+
+    test('PATCH /v1/conversations/:id/read clears the badge without needing a reply, shared across agents', async () => {
+      await insertUsers([userOne, agent, superAdmin]);
+      await insertConversations([studentConversationOne]);
+
+      await request(app)
+        .post(`/v1/conversations/${studentConversationOne._id}/messages`)
+        .set('Authorization', `Bearer ${userOneAccessToken}`)
+        .send({ contentType: 'text', text: 'Anyone there?' })
+        .expect(httpStatus.CREATED);
+
+      const readRes = await request(app)
+        .patch(`/v1/conversations/${studentConversationOne._id}/read`)
+        .set('Authorization', `Bearer ${agentAccessToken}`)
+        .send()
+        .expect(httpStatus.OK);
+      expect(readRes.body.unreadCount).toBe(0);
+
+      // a different agent should also see it cleared - shared, not per-agent
+      const getRes = await request(app)
+        .get(`/v1/conversations/${studentConversationOne._id}`)
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .send()
+        .expect(httpStatus.OK);
+      expect(getRes.body.unreadCount).toBe(0);
+    });
+
+    test('should return 400 when trying to mark a group chat as read', async () => {
+      await insertUsers([agent, superAdmin]);
+      await insertConversations([groupConversation]);
+
+      await request(app)
+        .patch(`/v1/conversations/${groupConversation._id}/read`)
+        .set('Authorization', `Bearer ${agentAccessToken}`)
+        .send()
+        .expect(httpStatus.BAD_REQUEST);
+    });
+
+    test('should return 403 if a student tries to mark their own conversation as read', async () => {
+      await insertUsers([userOne]);
+      await insertConversations([studentConversationOne]);
+
+      await request(app)
+        .patch(`/v1/conversations/${studentConversationOne._id}/read`)
+        .set('Authorization', `Bearer ${userOneAccessToken}`)
+        .send()
+        .expect(httpStatus.FORBIDDEN);
+    });
+  });
 });

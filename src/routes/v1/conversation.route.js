@@ -25,6 +25,10 @@ router
   .route('/:conversationId/labels')
   .patch(auth(), validate(conversationValidation.updateLabels), conversationController.updateLabels);
 
+router
+  .route('/:conversationId/read')
+  .patch(auth(), validate(conversationValidation.markRead), conversationController.markRead);
+
 module.exports = router;
 
 /**
@@ -254,6 +258,42 @@ module.exports = router;
  *               $ref: '#/components/schemas/Conversation'
  *       "400":
  *         description: Labels can only be set on student_support conversations
+ *       "401":
+ *         $ref: '#/components/responses/Unauthorized'
+ *       "403":
+ *         $ref: '#/components/responses/Forbidden'
+ *       "404":
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @swagger
+ * /conversations/{id}/read:
+ *   patch:
+ *     summary: Mark a student's conversation as read
+ *     description: >
+ *       Any agent or super_admin can call this. Shared across the whole team, not per-agent -
+ *       once any staff member marks a conversation read (or replies into it, which does this
+ *       automatically), the unreadCount clears for every agent, matching the shared-inbox
+ *       "any agent can pick up any query" model. student_support only.
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       "200":
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Conversation'
+ *       "400":
+ *         description: Only student_support conversations track a shared read marker
  *       "401":
  *         $ref: '#/components/responses/Unauthorized'
  *       "403":

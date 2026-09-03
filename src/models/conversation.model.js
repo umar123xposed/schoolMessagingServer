@@ -35,6 +35,10 @@ const conversationSchema = mongoose.Schema(
     lastMessageAt: {
       type: Date,
     },
+
+    lastReadAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
