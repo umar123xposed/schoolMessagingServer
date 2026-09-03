@@ -18,13 +18,27 @@ const getUserConversationFilter = (user) => {
 };
 
 /**
+ * conversation.studentId may be a raw ObjectId, or a populated User document
+ * (getConversationById/queryConversationsForUser populate it for display purposes) -
+ * this resolves either shape back to a plain id string.
+ * @param {Conversation} conversation
+ * @returns {string|undefined}
+ */
+const getStudentIdString = (conversation) => {
+  if (!conversation.studentId) {
+    return undefined;
+  }
+  return String(conversation.studentId._id || conversation.studentId);
+};
+
+/**
  * Throw if the user may not read/write the given conversation
  * @param {Conversation} conversation
  * @param {User} user
  */
 const assertUserCanAccessConversation = (conversation, user) => {
   if (user.role === 'student') {
-    if (String(conversation.studentId) !== String(user._id)) {
+    if (getStudentIdString(conversation) !== String(user._id)) {
       throw new ApiError(httpStatus.FORBIDDEN, 'Forbidden');
     }
     return;
@@ -77,6 +91,32 @@ const createGroupConversation = async (creator, body) => {
 };
 
 /**
+ * Attach a shared (not per-agent) unreadCount to one student_support conversation - the
+ * number of student-authored messages since the conversation was last read by any staff
+ * member. Not meaningful for agent_group conversations (no "student query" concept there).
+ * @param {Conversation} conversation
+ * @returns {Promise<Object>} plain object (already toJSON'd) with unreadCount attached
+ */
+const attachUnreadCount = async (conversation) => {
+  const json = conversation.toJSON();
+  if (conversation.type !== 'student_support') {
+    return json;
+  }
+  const unreadQuery = { conversationId: conversation._id, senderId: getStudentIdString(conversation) };
+  if (conversation.lastReadAt) {
+    unreadQuery.createdAt = { $gt: conversation.lastReadAt };
+  }
+  json.unreadCount = await Message.countDocuments(unreadQuery);
+  return json;
+};
+
+/**
+ * @param {Conversation[]} conversations
+ * @returns {Promise<Object[]>}
+ */
+const attachUnreadCounts = (conversations) => Promise.all(conversations.map(attachUnreadCount));
+
+/**
  * Query conversations visible to a user
  * @param {User} user
  * @param {Object} filter
@@ -85,8 +125,10 @@ const createGroupConversation = async (creator, body) => {
  */
 const queryConversationsForUser = async (user, filter, options) => {
   const combinedFilter = { $and: [getUserConversationFilter(user), filter] };
-  const paginateOptions = { ...options, sortBy: options.sortBy || 'lastMessageAt:desc' };
-  return Conversation.paginate(combinedFilter, paginateOptions);
+  const paginateOptions = { ...options, sortBy: options.sortBy || 'lastMessageAt:desc', populate: 'studentId' };
+  const result = await Conversation.paginate(combinedFilter, paginateOptions);
+  result.results = await attachUnreadCounts(result.results);
+  return result;
 };
 
 /**
@@ -95,7 +137,7 @@ const queryConversationsForUser = async (user, filter, options) => {
  * @returns {Promise<Conversation>}
  */
 const getConversationById = async (conversationId) => {
-  return Conversation.findById(conversationId);
+  return Conversation.findById(conversationId).populate('studentId');
 };
 
 /**
@@ -134,6 +176,30 @@ const updateConversationLabels = async (conversationId, user, labelIds) => {
   conversation.labels = labelIds;
   await conversation.save();
   return conversation;
+};
+
+/**
+ * Mark a student_support conversation as read - shared across every agent (not per-agent):
+ * once any staff member marks it read, the unread badge clears for the whole team, per the
+ * support-desk "any agent can pick up any query" model.
+ * @param {ObjectId} conversationId
+ * @param {User} user
+ * @returns {Promise<Object>} plain object (already toJSON'd) with unreadCount attached
+ */
+const markConversationRead = async (conversationId, user) => {
+  if (user.role !== 'agent' && user.role !== 'super_admin') {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Forbidden');
+  }
+  const conversation = await getConversationById(conversationId);
+  if (!conversation) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Conversation not found');
+  }
+  if (conversation.type !== 'student_support') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Only student_support conversations track a shared read marker');
+  }
+  conversation.lastReadAt = new Date();
+  await conversation.save();
+  return attachUnreadCount(conversation);
 };
 
 /**
@@ -193,12 +259,14 @@ const deleteGroupConversation = async (conversationId, user) => {
 module.exports = {
   getUserConversationFilter,
   assertUserCanAccessConversation,
+  attachUnreadCount,
   createStudentConversation,
   createGroupConversation,
   queryConversationsForUser,
   getConversationById,
   getConversationAndVerifyAccess,
   updateConversationLabels,
+  markConversationRead,
   updateGroupConversation,
   deleteGroupConversation,
 };

@@ -24,6 +24,10 @@ const sendMessages = async (conversationId, sender, messagesInput) => {
   const messages = await Message.create(messageBodies);
 
   conversation.lastMessageAt = new Date();
+
+  if (sender.role !== 'student' && conversation.type === 'student_support') {
+    conversation.lastReadAt = new Date();
+  }
   await conversation.save();
 
   messages.forEach((message) => appEvents.emit('message:new', message));
@@ -121,7 +125,8 @@ const broadcastMessage = async (sender, body) => {
   }));
 
   const messages = await Message.create(messageBodies);
-  await Conversation.updateMany({ _id: { $in: targetIds } }, { lastMessageAt: new Date() });
+
+  await Conversation.updateMany({ _id: { $in: targetIds } }, { lastMessageAt: new Date(), lastReadAt: new Date() });
 
   messages.forEach((message) => appEvents.emit('message:new', message));
 
