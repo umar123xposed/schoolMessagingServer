@@ -123,6 +123,26 @@ components:
         size: 245678
         fileName: homework.jpg
 
+    PresignedUpload:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+          description: Short-lived presigned PUT URL - PUT the raw file bytes here directly, with a matching Content-Type header
+        expiresIn:
+          type: number
+          description: seconds until uploadUrl expires
+        attachment:
+          $ref: '#/components/schemas/Attachment'
+      example:
+        uploadUrl: https://xxxxxxxx.r2.cloudflarestorage.com/attachments/6f1c1e1a-....jpg?X-Amz-Signature=...
+        expiresIn: 300
+        attachment:
+          url: https://pub-xxxxxxxx.r2.dev/attachments/6f1c1e1a-....jpg
+          mimeType: image/jpeg
+          size: 245678
+          fileName: homework.jpg
+
     Message:
       type: object
       properties:
