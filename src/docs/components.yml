@@ -15,9 +15,9 @@ components:
         role:
           type: string
           enum: [student, agent, super_admin]
-        batchLabel:
+        batchId:
           type: string
-          description: student-only - the 6-month cohort this student belongs to
+          description: student-only - id of the batch/cohort this student belongs to
         notes:
           type: string
           description: student-only - free text, e.g. sibling info
@@ -33,7 +33,24 @@ components:
         phoneNumber: "+15551234567"
         name: fake name
         role: student
-        batchLabel: 2026-spring
+        batchId: 5ebac534954b54139806c120
+
+    Batch:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: 5ebac534954b54139806c120
+        name: 2026-fall
 
     Token:
       type: object
@@ -198,24 +215,26 @@ components:
           type: string
         shortcut:
           type: string
+          description: unique per-creator - different agents may each have their own "/1"
         content:
           type: string
-        isShared:
-          type: boolean
         createdBy:
           type: string
       example:
         id: 5ebac534954b54139806c116
         shortcut: /1
         content: Thanks for reaching out, we'll get back to you shortly.
-        isShared: true
         createdBy: 5ebac534954b54139806c113
 
     BatchStorageStat:
       type: object
       properties:
-        batchLabel:
+        batchId:
           type: string
+          description: null for students not assigned to any batch
+        batchName:
+          type: string
+          description: "\"unassigned\" when batchId is null"
         studentCount:
           type: number
         conversationCount:
@@ -227,7 +246,8 @@ components:
         attachmentBytes:
           type: number
       example:
-        batchLabel: 2026-spring
+        batchId: 5ebac534954b54139806c120
+        batchName: 2026-spring
         studentCount: 480
         conversationCount: 480
         messageCount: 15230
@@ -239,8 +259,11 @@ components:
       properties:
         id:
           type: string
-        batchLabel:
+        batchId:
           type: string
+        batchName:
+          type: string
+          description: snapshot of the batch's name at deletion time - the Batch document itself is deleted by the time the job completes
         status:
           type: string
           enum: [pending, running, completed, failed]
@@ -267,7 +290,8 @@ components:
           type: string
       example:
         id: 5ebac534954b54139806c118
-        batchLabel: 2025-fall
+        batchId: 5ebac534954b54139806c120
+        batchName: 2025-fall
         status: completed
         triggeredBy: 5ebac534954b54139806c113
         counts:

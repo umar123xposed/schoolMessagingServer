@@ -1,6 +1,6 @@
 const httpStatus = require('http-status');
 const logger = require('../config/logger');
-const { User, Conversation, Message, BatchDeletionJob } = require('../models');
+const { User, Conversation, Message, BatchDeletionJob, Batch } = require('../models');
 const ApiError = require('../utils/ApiError');
 const uploadService = require('./upload.service');
 
@@ -18,7 +18,7 @@ const getStorageStats = async () => {
     { $unwind: { path: '$messages', preserveNullAndEmptyArrays: true } },
     {
       $group: {
-        _id: { $ifNull: ['$student.batchLabel', 'unassigned'] },
+        _id: { $ifNull: ['$student.batchId', null] },
         studentIds: { $addToSet: '$student._id' },
         conversationIds: { $addToSet: '$_id' },
         messageCount: { $sum: { $cond: [{ $ifNull: ['$messages._id', false] }, 1, 0] } },
@@ -26,10 +26,13 @@ const getStorageStats = async () => {
         attachmentBytes: { $sum: { $ifNull: ['$messages.attachment.size', 0] } },
       },
     },
+    { $lookup: { from: 'batches', localField: '_id', foreignField: '_id', as: 'batch' } },
+    { $unwind: { path: '$batch', preserveNullAndEmptyArrays: true } },
     {
       $project: {
         _id: 0,
-        batchLabel: '$_id',
+        batchId: '$_id',
+        batchName: { $ifNull: ['$batch.name', 'unassigned'] },
         studentCount: { $size: '$studentIds' },
         conversationCount: { $size: '$conversationIds' },
         messageCount: 1,
@@ -37,7 +40,7 @@ const getStorageStats = async () => {
         attachmentBytes: 1,
       },
     },
-    { $sort: { batchLabel: 1 } },
+    { $sort: { batchName: 1 } },
   ]);
 
   const total = batches.reduce(
@@ -59,7 +62,7 @@ const getStorageStats = async () => {
  * users - in that order so a job that dies partway never leaves orphaned R2 storage (the
  * failure mode CLAUDE.md explicitly warns is the easiest mistake to make here).
  * Re-queries fresh from the DB rather than a precomputed list, so re-running this for the
- * same batchLabel after a failure just picks up whatever's left.
+ * same batchId after a failure just picks up whatever's left.
  * @param {ObjectId} jobId
  */
 const runBatchDeletion = async (jobId) => {
@@ -73,7 +76,7 @@ const runBatchDeletion = async (jobId) => {
   await job.save();
 
   try {
-    const students = await User.find({ role: 'student', batchLabel: job.batchLabel }, '_id');
+    const students = await User.find({ role: 'student', batchId: job.batchId }, '_id');
     const studentIds = students.map((student) => student._id);
 
     const conversations = await Conversation.find({ type: 'student_support', studentId: { $in: studentIds } }, '_id');
@@ -91,6 +94,7 @@ const runBatchDeletion = async (jobId) => {
     await Message.deleteMany({ conversationId: { $in: conversationIds } });
     await Conversation.deleteMany({ _id: { $in: conversationIds } });
     await User.deleteMany({ _id: { $in: studentIds } });
+    await Batch.findByIdAndDelete(job.batchId);
 
     job.counts = {
       students: studentIds.length,
@@ -115,15 +119,15 @@ const runBatchDeletion = async (jobId) => {
  * route layer both, per this codebase's convention for destructive/admin-only actions).
  * Returns immediately; the actual deletion runs in the background via setImmediate (no
  * Redis/queue in Phase 1, so this is a fire-and-forget in-process job instead).
- * @param {string} batchLabel
+ * @param {Batch} batch
  * @param {User} triggeredBy
  * @returns {Promise<BatchDeletionJob>}
  */
-const startBatchDeletion = async (batchLabel, triggeredBy) => {
+const startBatchDeletion = async (batch, triggeredBy) => {
   if (triggeredBy.role !== 'super_admin') {
     throw new ApiError(httpStatus.FORBIDDEN, 'Forbidden');
   }
-  const job = await BatchDeletionJob.create({ batchLabel, triggeredBy: triggeredBy._id });
+  const job = await BatchDeletionJob.create({ batchId: batch._id, batchName: batch.name, triggeredBy: triggeredBy._id });
   setImmediate(() => {
     runBatchDeletion(job.id).catch((error) => logger.error(error));
   });

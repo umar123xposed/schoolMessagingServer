@@ -5,7 +5,6 @@ const createTemplate = {
   body: Joi.object().keys({
     shortcut: Joi.string().required(),
     content: Joi.string().required(),
-    isShared: Joi.boolean(),
   }),
 };
 
@@ -31,7 +30,6 @@ const updateTemplate = {
     .keys({
       shortcut: Joi.string(),
       content: Joi.string(),
-      isShared: Joi.boolean(),
     })
     .min(1),
 };

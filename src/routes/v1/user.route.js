@@ -64,9 +64,9 @@ module.exports = router;
  *               role:
  *                  type: string
  *                  enum: [student, agent, super_admin]
- *               batchLabel:
+ *               batchId:
  *                 type: string
- *                 description: student-only - the 6-month cohort this student belongs to (used by batch deletion)
+ *                 description: student-only - id of the batch/cohort this student belongs to (create one first via POST /batches)
  *               notes:
  *                 type: string
  *                 description: student-only - free text, e.g. sibling info
@@ -75,7 +75,7 @@ module.exports = router;
  *               phoneNumber: "+15551234567"
  *               password: password1
  *               role: student
- *               batchLabel: 2026-spring
+ *               batchId: 5ebac534954b54139806c120
  *     responses:
  *       "201":
  *         description: Created
@@ -108,10 +108,10 @@ module.exports = router;
  *           type: string
  *         description: User role
  *       - in: query
- *         name: batchLabel
+ *         name: batchId
  *         schema:
  *           type: string
- *         description: Filter students by cohort/batch label
+ *         description: Filter students by batch/cohort id
  *       - in: query
  *         name: sortBy
  *         schema:
@@ -225,9 +225,9 @@ module.exports = router;
  *                 format: password
  *                 minLength: 8
  *                 description: At least one number and one letter
- *               batchLabel:
+ *               batchId:
  *                 type: string
- *                 description: student-only - the 6-month cohort this student belongs to (used by batch deletion)
+ *                 description: student-only - id of the batch/cohort this student belongs to
  *               notes:
  *                 type: string
  *                 description: student-only - free text, e.g. sibling info

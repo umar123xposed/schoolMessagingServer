@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const request = require('supertest');
 const faker = require('faker');
 const httpStatus = require('http-status');
@@ -8,6 +9,7 @@ const { userOne, userTwo, agent, superAdmin, insertUsers } = require('../fixture
 const { userOneAccessToken, agentAccessToken, superAdminAccessToken } = require('../fixtures/token.fixture');
 const { studentConversationOne, insertConversations } = require('../fixtures/conversation.fixture');
 const { textMessageOne, insertMessages } = require('../fixtures/message.fixture');
+const { batchFall, insertBatches } = require('../fixtures/batch.fixture');
 
 setupTestDB();
 
@@ -68,9 +70,10 @@ describe('User routes', () => {
       expect(conversations[0].type).toBe('student_support');
     });
 
-    test('should accept batchLabel and notes for a student (used by batch deletion)', async () => {
+    test('should accept batchId and notes for a student (used by batch deletion)', async () => {
       await insertUsers([superAdmin]);
-      newUser.batchLabel = '2026-spring';
+      await insertBatches([batchFall]);
+      newUser.batchId = batchFall._id;
       newUser.notes = 'sibling of Jane Doe';
 
       const res = await request(app)
@@ -79,11 +82,22 @@ describe('User routes', () => {
         .send(newUser)
         .expect(httpStatus.CREATED);
 
-      expect(res.body.batchLabel).toBe('2026-spring');
+      expect(res.body.batchId).toBe(batchFall._id.toHexString());
       expect(res.body.notes).toBe('sibling of Jane Doe');
 
       const dbUser = await User.findById(res.body.id);
-      expect(dbUser.batchLabel).toBe('2026-spring');
+      expect(dbUser.batchId.toHexString()).toBe(batchFall._id.toHexString());
+    });
+
+    test('should return 400 when batchId does not reference an existing batch', async () => {
+      await insertUsers([superAdmin]);
+      newUser.batchId = mongoose.Types.ObjectId();
+
+      await request(app)
+        .post('/v1/users')
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .send(newUser)
+        .expect(httpStatus.BAD_REQUEST);
     });
 
     test('should be able to create a super_admin as well', async () => {

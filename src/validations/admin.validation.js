@@ -1,19 +1,10 @@
 const Joi = require('joi');
 const { objectId } = require('./custom.validation');
 
-const deleteBatch = {
-  params: Joi.object().keys({
-    batchLabel: Joi.string().required(),
-  }),
-  body: Joi.object().keys({
-    confirmBatchLabel: Joi.string().required(),
-  }),
-};
-
 const getBatchDeletionJobs = {
   query: Joi.object().keys({
     status: Joi.string().valid('pending', 'running', 'completed', 'failed'),
-    batchLabel: Joi.string(),
+    batchId: Joi.string().custom(objectId),
     sortBy: Joi.string(),
     limit: Joi.number().integer(),
     page: Joi.number().integer(),
@@ -27,7 +18,6 @@ const getBatchDeletionJob = {
 };
 
 module.exports = {
-  deleteBatch,
   getBatchDeletionJobs,
   getBatchDeletionJob,
 };

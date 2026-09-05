@@ -1,24 +1,26 @@
 const mongoose = require('mongoose');
 const config = require('../../src/config/config');
 const setupTestDB = require('../utils/setupTestDB');
-const { User, Conversation, Message, BatchDeletionJob } = require('../../src/models');
+const { User, Conversation, Message, BatchDeletionJob, Batch } = require('../../src/models');
 const { uploadService, batchDeletionService } = require('../../src/services');
 const { superAdmin, agent, insertUsers } = require('../fixtures/user.fixture');
 
 setupTestDB();
 
-// build attachment URLs the same way uploadService.uploadAttachment actually does
+// build attachment URLs the same way uploadService.createPresignedUpload actually does
 // (config.r2.publicBaseUrl + '/' + key), so extractKeyFromUrl round-trips correctly
 // regardless of what that config value happens to be in this environment
 const attachmentUrlForKey = (key) => `${config.r2.publicBaseUrl}/${key}`;
 
-const makeStudent = (batchLabel) => ({
+const makeBatch = (name) => ({ _id: mongoose.Types.ObjectId(), name });
+
+const makeStudent = (name, batchId) => ({
   _id: mongoose.Types.ObjectId(),
-  name: `Student ${batchLabel}`,
+  name,
   phoneNumber: `+1${Math.floor(1000000000 + Math.random() * 8999999999)}`,
   password: 'password1',
   role: 'student',
-  batchLabel,
+  batchId,
 });
 
 const makeConversation = (studentId) => ({
@@ -41,8 +43,12 @@ const makeMessage = (conversationId, senderId, attachmentUrl) => ({
 describe('batchDeletion.service', () => {
   describe('getStorageStats', () => {
     test('returns a per-batch breakdown and grand total', async () => {
-      const studentA = makeStudent('batch-A');
-      const studentB = makeStudent('batch-B');
+      const batchA = makeBatch('batch-A');
+      const batchB = makeBatch('batch-B');
+      await Batch.insertMany([batchA, batchB]);
+
+      const studentA = makeStudent('Student A', batchA._id);
+      const studentB = makeStudent('Student B', batchB._id);
       await User.insertMany([studentA, studentB]);
 
       const conversationA = makeConversation(studentA._id);
@@ -57,8 +63,8 @@ describe('batchDeletion.service', () => {
 
       const stats = await batchDeletionService.getStorageStats();
 
-      const batchAStats = stats.batches.find((b) => b.batchLabel === 'batch-A');
-      const batchBStats = stats.batches.find((b) => b.batchLabel === 'batch-B');
+      const batchAStats = stats.batches.find((b) => b.batchName === 'batch-A');
+      const batchBStats = stats.batches.find((b) => b.batchName === 'batch-B');
 
       expect(batchAStats).toMatchObject({ studentCount: 1, conversationCount: 1, messageCount: 2, attachmentCount: 1 });
       expect(batchBStats).toMatchObject({ studentCount: 1, conversationCount: 1, messageCount: 1, attachmentCount: 1 });
@@ -72,8 +78,12 @@ describe('batchDeletion.service', () => {
     test('deletes only the target batch, cleans up R2 objects, and marks the job completed', async () => {
       jest.spyOn(uploadService, 'deleteObjects').mockResolvedValue();
 
-      const studentA = makeStudent('batch-A');
-      const studentB = makeStudent('batch-B');
+      const batchA = makeBatch('batch-A');
+      const batchB = makeBatch('batch-B');
+      await Batch.insertMany([batchA, batchB]);
+
+      const studentA = makeStudent('Student A', batchA._id);
+      const studentB = makeStudent('Student B', batchB._id);
       await insertUsers([studentA, studentB]);
       await insertUsers([superAdmin]);
 
@@ -89,7 +99,11 @@ describe('batchDeletion.service', () => {
 
       // create the job directly (not via startBatchDeletion, which schedules its own
       // setImmediate run internally - calling both would race two executions of the same job)
-      const job = await BatchDeletionJob.create({ batchLabel: 'batch-A', triggeredBy: superAdmin._id });
+      const job = await BatchDeletionJob.create({
+        batchId: batchA._id,
+        batchName: batchA.name,
+        triggeredBy: superAdmin._id,
+      });
       await batchDeletionService.runBatchDeletion(job.id);
 
       const dbJob = await BatchDeletionJob.findById(job.id);
@@ -99,10 +113,12 @@ describe('batchDeletion.service', () => {
       expect(await User.findById(studentA._id)).toBeNull();
       expect(await Conversation.findById(conversationA._id)).toBeNull();
       expect(await Message.countDocuments({ conversationId: conversationA._id })).toBe(0);
+      expect(await Batch.findById(batchA._id)).toBeNull();
 
       expect(await User.findById(studentB._id)).not.toBeNull();
       expect(await Conversation.findById(conversationB._id)).not.toBeNull();
       expect(await Message.countDocuments({ conversationId: conversationB._id })).toBe(1);
+      expect(await Batch.findById(batchB._id)).not.toBeNull();
 
       expect(uploadService.deleteObjects).toHaveBeenCalledWith(
         expect.arrayContaining(['attachments/a1.jpg', 'attachments/a2.jpg'])
@@ -113,13 +129,19 @@ describe('batchDeletion.service', () => {
     test('marks the job failed (not silently stuck) if a step throws', async () => {
       jest.spyOn(uploadService, 'deleteObjects').mockRejectedValue(new Error('R2 is down'));
 
-      const student = makeStudent('batch-C');
+      const batchC = makeBatch('batch-C');
+      await Batch.insertMany([batchC]);
+      const student = makeStudent('Student C', batchC._id);
       await insertUsers([student, superAdmin]);
       const conversation = makeConversation(student._id);
       await Conversation.insertMany([conversation]);
       await Message.insertMany([makeMessage(conversation._id, student._id, attachmentUrlForKey('attachments/c1.jpg'))]);
 
-      const job = await BatchDeletionJob.create({ batchLabel: 'batch-C', triggeredBy: superAdmin._id });
+      const job = await BatchDeletionJob.create({
+        batchId: batchC._id,
+        batchName: batchC.name,
+        triggeredBy: superAdmin._id,
+      });
       await batchDeletionService.runBatchDeletion(job.id);
 
       const dbJob = await BatchDeletionJob.findById(job.id);
@@ -132,8 +154,10 @@ describe('batchDeletion.service', () => {
 
     test('rejects a non-super_admin trying to start a batch deletion', async () => {
       await insertUsers([agent]);
+      const batch = makeBatch('batch-A');
+      await Batch.insertMany([batch]);
 
-      await expect(batchDeletionService.startBatchDeletion('batch-A', agent)).rejects.toMatchObject({
+      await expect(batchDeletionService.startBatchDeletion(batch, agent)).rejects.toMatchObject({
         statusCode: 403,
       });
     });

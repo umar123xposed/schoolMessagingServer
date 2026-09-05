@@ -6,17 +6,12 @@ const templateSchema = mongoose.Schema(
     shortcut: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
     content: {
       type: String,
       required: true,
       trim: true,
-    },
-    isShared: {
-      type: Boolean,
-      default: false,
     },
     createdBy: {
       type: mongoose.SchemaTypes.ObjectId,
@@ -29,8 +24,17 @@ const templateSchema = mongoose.Schema(
   }
 );
 
-templateSchema.statics.isShortcutTaken = async function (shortcut, excludeTemplateId) {
-  const template = await this.findOne({ shortcut, _id: { $ne: excludeTemplateId } });
+templateSchema.index({ createdBy: 1, shortcut: 1 }, { unique: true });
+
+/**
+ * Check if a shortcut is already taken by this same creator
+ * @param {string} shortcut
+ * @param {ObjectId} createdBy
+ * @param {ObjectId} [excludeTemplateId]
+ * @returns {Promise<boolean>}
+ */
+templateSchema.statics.isShortcutTaken = async function (shortcut, createdBy, excludeTemplateId) {
+  const template = await this.findOne({ shortcut, createdBy, _id: { $ne: excludeTemplateId } });
   return !!template;
 };
 

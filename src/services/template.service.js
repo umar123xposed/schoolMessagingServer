@@ -9,22 +9,21 @@ const ApiError = require('../utils/ApiError');
  * @returns {Promise<Template>}
  */
 const createTemplate = async (creator, templateBody) => {
-  if (await Template.isShortcutTaken(templateBody.shortcut)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Shortcut already taken');
+  if (await Template.isShortcutTaken(templateBody.shortcut, creator._id)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'You already have a template with this shortcut');
   }
   return Template.create({ ...templateBody, createdBy: creator._id });
 };
 
 /**
- * Query for templates visible to a user (their own, plus every shared one)
+ * Query for a user's own templates
  * @param {User} user
  * @param {Object} filter
  * @param {Object} options
  * @returns {Promise<QueryResult>}
  */
 const queryTemplatesForUser = async (user, filter, options) => {
-  const combinedFilter = { $and: [{ $or: [{ createdBy: user._id }, { isShared: true }] }, filter] };
-  return Template.paginate(combinedFilter, options);
+  return Template.paginate({ ...filter, createdBy: user._id }, options);
 };
 
 /**
@@ -36,14 +35,19 @@ const getTemplateById = async (id) => {
   return Template.findById(id);
 };
 
-const assertUserCanManageTemplate = (template, user) => {
-  if (String(template.createdBy) !== String(user._id) && user.role !== 'super_admin') {
+/**
+ * Templates are private
+ * @param {Template} template
+ * @param {User} user
+ */
+const assertUserOwnsTemplate = (template, user) => {
+  if (String(template.createdBy) !== String(user._id)) {
     throw new ApiError(httpStatus.FORBIDDEN, 'Forbidden');
   }
 };
 
 /**
- * Update a template - allowed for its creator or super_admin
+ * Update a template - creator only
  * @param {ObjectId} templateId
  * @param {User} user
  * @param {Object} updateBody
@@ -54,9 +58,9 @@ const updateTemplateById = async (templateId, user, updateBody) => {
   if (!template) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Template not found');
   }
-  assertUserCanManageTemplate(template, user);
-  if (updateBody.shortcut && (await Template.isShortcutTaken(updateBody.shortcut, templateId))) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Shortcut already taken');
+  assertUserOwnsTemplate(template, user);
+  if (updateBody.shortcut && (await Template.isShortcutTaken(updateBody.shortcut, user._id, templateId))) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'You already have a template with this shortcut');
   }
   Object.assign(template, updateBody);
   await template.save();
@@ -64,7 +68,7 @@ const updateTemplateById = async (templateId, user, updateBody) => {
 };
 
 /**
- * Delete a template - allowed for its creator or super_admin
+ * Delete a template - creator only
  * @param {ObjectId} templateId
  * @param {User} user
  * @returns {Promise<Template>}
@@ -74,7 +78,7 @@ const deleteTemplateById = async (templateId, user) => {
   if (!template) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Template not found');
   }
-  assertUserCanManageTemplate(template, user);
+  assertUserOwnsTemplate(template, user);
   await template.remove();
   return template;
 };
@@ -83,6 +87,7 @@ module.exports = {
   createTemplate,
   queryTemplatesForUser,
   getTemplateById,
+  assertUserOwnsTemplate,
   updateTemplateById,
   deleteTemplateById,
 };

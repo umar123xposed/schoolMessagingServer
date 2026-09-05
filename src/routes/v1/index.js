@@ -4,6 +4,7 @@ const userRoute = require('./user.route');
 const conversationRoute = require('./conversation.route');
 const messageRoute = require('./message.route');
 const labelRoute = require('./label.route');
+const batchRoute = require('./batch.route');
 const templateRoute = require('./template.route');
 const uploadRoute = require('./upload.route');
 const adminRoute = require('./admin.route');
@@ -32,6 +33,10 @@ const defaultRoutes = [
   {
     path: '/labels',
     route: labelRoute,
+  },
+  {
+    path: '/batches',
+    route: batchRoute,
   },
   {
     path: '/templates',

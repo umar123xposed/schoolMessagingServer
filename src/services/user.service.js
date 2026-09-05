@@ -1,5 +1,5 @@
 const httpStatus = require('http-status');
-const { User, Conversation, Message } = require('../models');
+const { User, Conversation, Message, Batch } = require('../models');
 const ApiError = require('../utils/ApiError');
 const conversationService = require('./conversation.service');
 
@@ -14,6 +14,9 @@ const createUser = async (userBody) => {
   }
   if (userBody.email && (await User.isEmailTaken(userBody.email))) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
+  }
+  if (userBody.batchId && !(await Batch.findById(userBody.batchId))) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Batch not found');
   }
   const user = await User.create(userBody);
   if (user.role === 'student') {
@@ -84,6 +87,9 @@ const updateUserById = async (userId, updateBody) => {
   }
   if (updateBody.email && (await User.isEmailTaken(updateBody.email, userId))) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
+  }
+  if (updateBody.batchId && !(await Batch.findById(updateBody.batchId))) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Batch not found');
   }
   Object.assign(user, updateBody);
   await user.save();

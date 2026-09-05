@@ -3,6 +3,7 @@ module.exports.userValidation = require('./user.validation');
 module.exports.conversationValidation = require('./conversation.validation');
 module.exports.messageValidation = require('./message.validation');
 module.exports.labelValidation = require('./label.validation');
+module.exports.batchValidation = require('./batch.validation');
 module.exports.templateValidation = require('./template.validation');
 module.exports.uploadValidation = require('./upload.validation');
 module.exports.adminValidation = require('./admin.validation');

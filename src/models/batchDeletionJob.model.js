@@ -3,7 +3,12 @@ const { toJSON, paginate } = require('./plugins');
 
 const batchDeletionJobSchema = mongoose.Schema(
   {
-    batchLabel: {
+    batchId: {
+      type: mongoose.SchemaTypes.ObjectId,
+      ref: 'Batch',
+      required: true,
+    },
+    batchName: {
       type: String,
       required: true,
       trim: true,

@@ -23,7 +23,7 @@ module.exports = router;
  * @swagger
  * tags:
  *   name: Templates
- *   description: Quick-reply templates (e.g. "/1", "/2")
+ *   description: Quick-reply templates (e.g. "/1", "/2") - fully private per-agent, never shared
  */
 
 /**
@@ -31,7 +31,7 @@ module.exports = router;
  * /templates:
  *   post:
  *     summary: Create a quick-reply template
- *     description: Any agent or the super admin can create templates. Private by default; set isShared to make it visible to every agent.
+ *     description: Any agent or the super admin can create templates. Fully private - only visible to and manageable by the creator, never shared with other agents or the super admin.
  *     tags: [Templates]
  *     security:
  *       - bearerAuth: []
@@ -49,12 +49,9 @@ module.exports = router;
  *                 type: string
  *               content:
  *                 type: string
- *               isShared:
- *                 type: boolean
  *             example:
  *               shortcut: /1
  *               content: Thanks for reaching out, we'll get back to you shortly.
- *               isShared: true
  *     responses:
  *       "201":
  *         description: Created
@@ -63,15 +60,15 @@ module.exports = router;
  *             schema:
  *               $ref: '#/components/schemas/Template'
  *       "400":
- *         description: Shortcut already taken
+ *         description: You already have a template with this shortcut
  *       "401":
  *         $ref: '#/components/responses/Unauthorized'
  *       "403":
  *         $ref: '#/components/responses/Forbidden'
  *
  *   get:
- *     summary: List templates visible to the current agent
- *     description: Returns the current user's own templates plus every shared template.
+ *     summary: List the current user's own templates
+ *     description: Returns only templates created by the current user - templates are fully private, never shared with other agents or the super admin.
  *     tags: [Templates]
  *     security:
  *       - bearerAuth: []
@@ -119,6 +116,7 @@ module.exports = router;
  * /templates/{id}:
  *   get:
  *     summary: Get a template
+ *     description: Allowed only for the template's creator.
  *     tags: [Templates]
  *     security:
  *       - bearerAuth: []
@@ -144,7 +142,7 @@ module.exports = router;
  *
  *   patch:
  *     summary: Update a template
- *     description: Allowed for the template's creator, or the super admin.
+ *     description: Allowed only for the template's creator.
  *     tags: [Templates]
  *     security:
  *       - bearerAuth: []
@@ -165,8 +163,6 @@ module.exports = router;
  *                 type: string
  *               content:
  *                 type: string
- *               isShared:
- *                 type: boolean
  *     responses:
  *       "200":
  *         description: OK
@@ -174,6 +170,8 @@ module.exports = router;
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Template'
+ *       "400":
+ *         description: You already have a template with this shortcut
  *       "401":
  *         $ref: '#/components/responses/Unauthorized'
  *       "403":
@@ -183,7 +181,7 @@ module.exports = router;
  *
  *   delete:
  *     summary: Delete a template
- *     description: Allowed for the template's creator, or the super admin.
+ *     description: Allowed only for the template's creator.
  *     tags: [Templates]
  *     security:
  *       - bearerAuth: []

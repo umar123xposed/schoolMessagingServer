@@ -20,6 +20,7 @@ const getTemplate = catchAsync(async (req, res) => {
   if (!template) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Template not found');
   }
+  templateService.assertUserOwnsTemplate(template, req.user);
   res.send(template);
 });
 

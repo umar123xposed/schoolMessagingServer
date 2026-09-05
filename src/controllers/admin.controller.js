@@ -9,17 +9,8 @@ const getStorageStats = catchAsync(async (req, res) => {
   res.send(stats);
 });
 
-const deleteBatch = catchAsync(async (req, res) => {
-  const { batchLabel } = req.params;
-  if (req.body.confirmBatchLabel !== batchLabel) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'confirmBatchLabel must exactly match the batch being deleted');
-  }
-  const job = await batchDeletionService.startBatchDeletion(batchLabel, req.user);
-  res.status(httpStatus.ACCEPTED).send(job);
-});
-
 const getBatchDeletionJobs = catchAsync(async (req, res) => {
-  const filter = pick(req.query, ['status', 'batchLabel']);
+  const filter = pick(req.query, ['status', 'batchId']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
   const result = await batchDeletionService.queryBatchDeletionJobs(filter, options);
   res.send(result);
@@ -35,7 +26,6 @@ const getBatchDeletionJob = catchAsync(async (req, res) => {
 
 module.exports = {
   getStorageStats,
-  deleteBatch,
   getBatchDeletionJobs,
   getBatchDeletionJob,
 };

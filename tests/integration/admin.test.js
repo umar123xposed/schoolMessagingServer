@@ -3,22 +3,20 @@ const request = require('supertest');
 const httpStatus = require('http-status');
 const app = require('../../src/app');
 const setupTestDB = require('../utils/setupTestDB');
-const { Conversation, Message, BatchDeletionJob } = require('../../src/models');
+const { Conversation, Message, BatchDeletionJob, Batch } = require('../../src/models');
 const { uploadService } = require('../../src/services');
-const { userOne, agent, superAdmin, insertUsers } = require('../fixtures/user.fixture');
-const { userOneAccessToken, agentAccessToken, superAdminAccessToken } = require('../fixtures/token.fixture');
+const { agent, superAdmin, insertUsers } = require('../fixtures/user.fixture');
+const { agentAccessToken, superAdminAccessToken } = require('../fixtures/token.fixture');
 
 setupTestDB();
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const makeStudent = (batchLabel) => ({
+const makeStudent = (name, batchId) => ({
   _id: mongoose.Types.ObjectId(),
-  name: `Student ${batchLabel}`,
+  name,
   phoneNumber: `+1${Math.floor(1000000000 + Math.random() * 8999999999)}`,
   password: 'password1',
   role: 'student',
-  batchLabel,
+  batchId,
 });
 
 const makeConversation = (studentId) => ({
@@ -37,7 +35,9 @@ describe('Admin routes', () => {
   describe('GET /v1/admin/storage-stats', () => {
     test('should return 200 with a per-batch breakdown for super_admin', async () => {
       await insertUsers([superAdmin]);
-      const student = makeStudent('batch-X');
+      const batch = { _id: mongoose.Types.ObjectId(), name: 'batch-X' };
+      await Batch.insertMany([batch]);
+      const student = makeStudent('Student X', batch._id);
       await insertUsers([student]);
       const conversation = makeConversation(student._id);
       await Conversation.insertMany([conversation]);
@@ -57,8 +57,13 @@ describe('Admin routes', () => {
         .send()
         .expect(httpStatus.OK);
 
-      const batchStats = res.body.batches.find((b) => b.batchLabel === 'batch-X');
-      expect(batchStats).toMatchObject({ studentCount: 1, conversationCount: 1, messageCount: 1 });
+      const batchStats = res.body.batches.find((b) => b.batchName === 'batch-X');
+      expect(batchStats).toMatchObject({
+        batchId: batch._id.toHexString(),
+        studentCount: 1,
+        conversationCount: 1,
+        messageCount: 1,
+      });
       expect(res.body.total.studentCount).toBeGreaterThanOrEqual(1);
     });
 
@@ -77,60 +82,14 @@ describe('Admin routes', () => {
     });
   });
 
-  describe('POST /v1/admin/batches/:batchLabel/delete', () => {
-    test('should return 202 immediately with a pending/running job, without blocking on the deletion work', async () => {
-      await insertUsers([superAdmin]);
-      const student = makeStudent('batch-Y');
-      await insertUsers([student]);
-
-      const res = await request(app)
-        .post('/v1/admin/batches/batch-Y/delete')
-        .set('Authorization', `Bearer ${superAdminAccessToken}`)
-        .send({ confirmBatchLabel: 'batch-Y' })
-        .expect(httpStatus.ACCEPTED);
-
-      expect(res.body.batchLabel).toBe('batch-Y');
-      expect(['pending', 'running']).toContain(res.body.status);
-
-      // let the background job finish before the next test's DB wipe, for tidiness
-      await sleep(200);
-    });
-
-    test('should return 400 if confirmBatchLabel does not match the batchLabel param', async () => {
-      await insertUsers([superAdmin]);
-
-      await request(app)
-        .post('/v1/admin/batches/batch-Y/delete')
-        .set('Authorization', `Bearer ${superAdminAccessToken}`)
-        .send({ confirmBatchLabel: 'not-the-right-label' })
-        .expect(httpStatus.BAD_REQUEST);
-    });
-
-    test('should return 403 for a non-super_admin', async () => {
-      await insertUsers([agent]);
-
-      await request(app)
-        .post('/v1/admin/batches/batch-Y/delete')
-        .set('Authorization', `Bearer ${agentAccessToken}`)
-        .send({ confirmBatchLabel: 'batch-Y' })
-        .expect(httpStatus.FORBIDDEN);
-    });
-
-    test('should return 403 for a student', async () => {
-      await insertUsers([userOne]);
-
-      await request(app)
-        .post('/v1/admin/batches/batch-Y/delete')
-        .set('Authorization', `Bearer ${userOneAccessToken}`)
-        .send({ confirmBatchLabel: 'batch-Y' })
-        .expect(httpStatus.FORBIDDEN);
-    });
-  });
-
   describe('GET /v1/admin/batch-deletions/:id', () => {
     test('should return 200 with the job status', async () => {
       await insertUsers([superAdmin]);
-      const job = await BatchDeletionJob.create({ batchLabel: 'batch-Z', triggeredBy: superAdmin._id });
+      const job = await BatchDeletionJob.create({
+        batchId: mongoose.Types.ObjectId(),
+        batchName: 'batch-Z',
+        triggeredBy: superAdmin._id,
+      });
 
       const res = await request(app)
         .get(`/v1/admin/batch-deletions/${job.id}`)
@@ -138,7 +97,7 @@ describe('Admin routes', () => {
         .send()
         .expect(httpStatus.OK);
 
-      expect(res.body.batchLabel).toBe('batch-Z');
+      expect(res.body.batchName).toBe('batch-Z');
     });
 
     test('should return 404 if the job does not exist', async () => {
@@ -156,8 +115,8 @@ describe('Admin routes', () => {
     test('should list jobs, filterable by status', async () => {
       await insertUsers([superAdmin]);
       await BatchDeletionJob.insertMany([
-        { batchLabel: 'batch-1', triggeredBy: superAdmin._id, status: 'completed' },
-        { batchLabel: 'batch-2', triggeredBy: superAdmin._id, status: 'failed' },
+        { batchId: mongoose.Types.ObjectId(), batchName: 'batch-1', triggeredBy: superAdmin._id, status: 'completed' },
+        { batchId: mongoose.Types.ObjectId(), batchName: 'batch-2', triggeredBy: superAdmin._id, status: 'failed' },
       ]);
 
       const res = await request(app)
@@ -168,7 +127,7 @@ describe('Admin routes', () => {
         .expect(httpStatus.OK);
 
       expect(res.body.results).toHaveLength(1);
-      expect(res.body.results[0].batchLabel).toBe('batch-2');
+      expect(res.body.results[0].batchName).toBe('batch-2');
     });
   });
 });

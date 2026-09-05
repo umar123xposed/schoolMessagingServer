@@ -8,8 +8,8 @@ const createUser = {
     password: Joi.string().required().custom(password),
     name: Joi.string().required(),
     role: Joi.string().required().valid('student', 'agent', 'super_admin'),
-    // student-specific, per user.model.js - a school's 6-month cohort label, used by batch deletion
-    batchLabel: Joi.string(),
+    // student-specific, per user.model.js - the batch/cohort this student belongs to (see POST /batches)
+    batchId: Joi.string().custom(objectId),
     notes: Joi.string(),
   }),
 };
@@ -18,7 +18,7 @@ const getUsers = {
   query: Joi.object().keys({
     name: Joi.string(),
     role: Joi.string(),
-    batchLabel: Joi.string(),
+    batchId: Joi.string().custom(objectId),
     sortBy: Joi.string(),
     limit: Joi.number().integer(),
     page: Joi.number().integer(),
@@ -41,7 +41,7 @@ const updateUser = {
       email: Joi.string().email(),
       password: Joi.string().custom(password),
       name: Joi.string(),
-      batchLabel: Joi.string(),
+      batchId: Joi.string().custom(objectId),
       notes: Joi.string(),
     })
     .min(1),

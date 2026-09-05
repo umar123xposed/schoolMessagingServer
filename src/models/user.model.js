@@ -51,9 +51,9 @@ const userSchema = mongoose.Schema(
       default: false,
     },
     // student-specific fields
-    batchLabel: {
-      type: String,
-      trim: true,
+    batchId: {
+      type: mongoose.SchemaTypes.ObjectId,
+      ref: 'Batch',
     },
     notes: {
       type: String,
