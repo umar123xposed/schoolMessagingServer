@@ -6,6 +6,7 @@ module.exports.conversationService = require('./conversation.service');
 module.exports.messageService = require('./message.service');
 module.exports.labelService = require('./label.service');
 module.exports.batchService = require('./batch.service');
+module.exports.studentImportService = require('./studentImport.service');
 module.exports.templateService = require('./template.service');
 module.exports.uploadService = require('./upload.service');
 module.exports.batchDeletionService = require('./batchDeletion.service');

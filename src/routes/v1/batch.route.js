@@ -1,6 +1,7 @@
 const express = require('express');
 const auth = require('../../middlewares/auth');
 const validate = require('../../middlewares/validate');
+const csvUpload = require('../../middlewares/csvUpload');
 const batchValidation = require('../../validations/batch.validation');
 const batchController = require('../../controllers/batch.controller');
 
@@ -20,6 +21,10 @@ router
 router
   .route('/:batchId/students')
   .get(auth('manageBatches'), validate(batchValidation.getBatchStudents), batchController.getBatchStudents);
+
+router
+  .route('/:batchId/students/import')
+  .post(auth('manageUsers'), csvUpload, validate(batchValidation.importStudents), batchController.importStudents);
 
 module.exports = router;
 
@@ -271,6 +276,76 @@ module.exports = router;
  *                   type: integer
  *                 totalResults:
  *                   type: integer
+ *       "401":
+ *         $ref: '#/components/responses/Unauthorized'
+ *       "403":
+ *         $ref: '#/components/responses/Forbidden'
+ *       "404":
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @swagger
+ * /batches/{id}/students/import:
+ *   post:
+ *     summary: Bulk-create students for a batch from a CSV roster
+ *     description: >
+ *       Super admin only. The CSV must have a header row with exactly these columns
+ *       (case-insensitive, any order): phoneNumber, name, and optionally email. The whole
+ *       file is validated first - a valid phoneNumber/name per row, no duplicate
+ *       phoneNumber/email within the file, and none already registered - before anything is
+ *       created. If any row fails validation, nothing is created and every problem is
+ *       returned at once (not just the first). On success, each created student gets a
+ *       random temporary password, returned once in this response only - it is not
+ *       recoverable afterwards, so save it before sharing it with the student.
+ *     tags: [Batches]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: CSV file, header row phoneNumber,name,email (email optional)
+ *     responses:
+ *       "201":
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/StudentImportResult'
+ *       "400":
+ *         description: CSV validation failed - see the errors array for every row that needs fixing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/Error'
+ *                 - type: object
+ *                   properties:
+ *                     errors:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           row:
+ *                             type: integer
+ *                             description: 1-based CSV row number, counting the header as row 1
+ *                           message:
+ *                             type: string
  *       "401":
  *         $ref: '#/components/responses/Unauthorized'
  *       "403":

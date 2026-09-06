@@ -52,6 +52,56 @@ components:
         id: 5ebac534954b54139806c120
         name: 2026-fall
 
+    StudentImportResult:
+      type: object
+      properties:
+        batchId:
+          type: string
+        batchName:
+          type: string
+        createdCount:
+          type: number
+        created:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              phoneNumber:
+                type: string
+              temporaryPassword:
+                type: string
+                description: only ever returned here, once - save it before sharing it with the student
+        failed:
+          type: array
+          description: normally empty - the whole file is validated before any creation starts, so this only fills in on an unexpected mid-import error
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              phoneNumber:
+                type: string
+              message:
+                type: string
+      example:
+        batchId: 5ebac534954b54139806c120
+        batchName: 2026-fall
+        createdCount: 2
+        created:
+          - id: 5ebac534954b54139806c130
+            name: Jane Doe
+            phoneNumber: "+15551234567"
+            temporaryPassword: 3f9a2c1b8e0dX9
+          - id: 5ebac534954b54139806c131
+            name: John Smith
+            phoneNumber: "+15557654321"
+            temporaryPassword: 9d4e7a5c2f1bX9
+        failed: []
+
     Token:
       type: object
       properties:

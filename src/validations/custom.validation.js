@@ -16,8 +16,9 @@ const password = (value, helpers) => {
 };
 
 const phoneNumber = (value, helpers) => {
-  if (!value.match(/^\+?[0-9]{7,15}$/)) {
-    return helpers.message('phoneNumber must be a valid phone number (7-15 digits, optional leading +)');
+  // E.164-style: mandatory leading +, country code can't start with 0, 7-15 digits total after the +
+  if (!value.match(/^\+[1-9]\d{6,14}$/)) {
+    return helpers.message('phoneNumber must include a country code (e.g. +15551234567)');
   }
   return value;
 };

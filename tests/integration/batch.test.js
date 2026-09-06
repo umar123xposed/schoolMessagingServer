@@ -251,4 +251,115 @@ describe('Batch routes', () => {
         .expect(httpStatus.FORBIDDEN);
     });
   });
+
+  describe('POST /v1/batches/:batchId/students/import', () => {
+    test('should create every student from a valid CSV and issue each a temporary password', async () => {
+      await insertUsers([superAdmin]);
+      await insertBatches([batchFall]);
+      const csv = 'phoneNumber,name,email\n+15551230001,Jane Doe,jane@example.com\n+15551230002,John Smith,\n';
+
+      const res = await request(app)
+        .post(`/v1/batches/${batchFall._id}/students/import`)
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .attach('file', Buffer.from(csv), 'students.csv')
+        .expect(httpStatus.CREATED);
+
+      expect(res.body.createdCount).toBe(2);
+      expect(res.body.failed).toEqual([]);
+      expect(res.body.created).toHaveLength(2);
+      res.body.created.forEach((student) => {
+        expect(student.temporaryPassword).toEqual(expect.any(String));
+      });
+
+      const janeDb = await User.findOne({ phoneNumber: '+15551230001' });
+      expect(janeDb).toMatchObject({ name: 'Jane Doe', email: 'jane@example.com', role: 'student' });
+      expect(janeDb.batchId.toHexString()).toBe(batchFall._id.toHexString());
+
+      const conversation = await Conversation.findOne({ studentId: janeDb._id });
+      expect(conversation).not.toBeNull();
+      expect(conversation.type).toBe('student_support');
+    });
+
+    test('should return 400 and create nothing when a required column is missing', async () => {
+      await insertUsers([superAdmin]);
+      await insertBatches([batchFall]);
+      const csv = 'phoneNumber,email\n+15551230001,jane@example.com\n';
+
+      const res = await request(app)
+        .post(`/v1/batches/${batchFall._id}/students/import`)
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .attach('file', Buffer.from(csv), 'students.csv')
+        .expect(httpStatus.BAD_REQUEST);
+
+      expect(res.body.errors).toEqual(expect.arrayContaining([expect.objectContaining({ row: 1 })]));
+      expect(await User.countDocuments({ role: 'student' })).toBe(0);
+    });
+
+    test('should return 400 and create nothing when a phone number repeats within the file', async () => {
+      await insertUsers([superAdmin]);
+      await insertBatches([batchFall]);
+      const csv = 'phoneNumber,name\n+15551230001,Jane Doe\n+15551230001,Duplicate Jane\n';
+
+      const res = await request(app)
+        .post(`/v1/batches/${batchFall._id}/students/import`)
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .attach('file', Buffer.from(csv), 'students.csv')
+        .expect(httpStatus.BAD_REQUEST);
+
+      expect(res.body.errors.some((e) => e.row === 3 && /duplicate/i.test(e.message))).toBe(true);
+      expect(await User.countDocuments({ role: 'student' })).toBe(0);
+    });
+
+    test('should return 400 and create nothing when a phone number is already registered', async () => {
+      await insertUsers([superAdmin, userOne]);
+      await insertBatches([batchFall]);
+      const csv = `phoneNumber,name\n${userOne.phoneNumber},Already Registered\n`;
+
+      const res = await request(app)
+        .post(`/v1/batches/${batchFall._id}/students/import`)
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .attach('file', Buffer.from(csv), 'students.csv')
+        .expect(httpStatus.BAD_REQUEST);
+
+      expect(res.body.errors.some((e) => /already registered/i.test(e.message))).toBe(true);
+      expect(await User.countDocuments({ role: 'student', name: 'Already Registered' })).toBe(0);
+    });
+
+    test('should return 400 for an invalid phone number in a row', async () => {
+      await insertUsers([superAdmin]);
+      await insertBatches([batchFall]);
+      const csv = 'phoneNumber,name\nnot-a-phone,Jane Doe\n';
+
+      const res = await request(app)
+        .post(`/v1/batches/${batchFall._id}/students/import`)
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .attach('file', Buffer.from(csv), 'students.csv')
+        .expect(httpStatus.BAD_REQUEST);
+
+      expect(res.body.errors).toEqual(expect.arrayContaining([expect.objectContaining({ row: 2 })]));
+    });
+
+    test('should return 404 for a non-existent batch', async () => {
+      await insertUsers([superAdmin]);
+      const csv = 'phoneNumber,name\n+15551230001,Jane Doe\n';
+
+      await request(app)
+        .post(`/v1/batches/${mongoose.Types.ObjectId()}/students/import`)
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .attach('file', Buffer.from(csv), 'students.csv')
+        .expect(httpStatus.NOT_FOUND);
+    });
+
+    test('should return 403 for a non-super_admin', async () => {
+      await insertUsers([agent]);
+      await insertBatches([batchFall]);
+      const csv = 'phoneNumber,name\n+15551230001,Jane Doe\n';
+
+      await request(app)
+        .post(`/v1/batches/${batchFall._id}/students/import`)
+        .set('Authorization', `Bearer ${agentAccessToken}`)
+        .attach('file', Buffer.from(csv), 'students.csv')
+        .expect(httpStatus.FORBIDDEN);
+    });
+  });
 });

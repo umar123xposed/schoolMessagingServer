@@ -2,7 +2,7 @@ const httpStatus = require('http-status');
 const pick = require('../utils/pick');
 const ApiError = require('../utils/ApiError');
 const catchAsync = require('../utils/catchAsync');
-const { batchService, userService } = require('../services');
+const { batchService, userService, studentImportService } = require('../services');
 
 const createBatch = catchAsync(async (req, res) => {
   const batch = await batchService.createBatch(req.body);
@@ -44,6 +44,14 @@ const getBatchStudents = catchAsync(async (req, res) => {
   res.send(result);
 });
 
+const importStudents = catchAsync(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'CSV file is required');
+  }
+  const result = await studentImportService.importStudentsForBatch(req.params.batchId, req.file.buffer, req.user);
+  res.status(httpStatus.CREATED).send(result);
+});
+
 module.exports = {
   createBatch,
   getBatches,
@@ -51,4 +59,5 @@ module.exports = {
   updateBatch,
   deleteBatch,
   getBatchStudents,
+  importStudents,
 };

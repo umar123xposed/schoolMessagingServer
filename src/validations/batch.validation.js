@@ -53,6 +53,12 @@ const getBatchStudents = {
   }),
 };
 
+const importStudents = {
+  params: Joi.object().keys({
+    batchId: Joi.required().custom(objectId),
+  }),
+};
+
 module.exports = {
   createBatch,
   getBatches,
@@ -60,4 +66,5 @@ module.exports = {
   updateBatch,
   deleteBatch,
   getBatchStudents,
+  importStudents,
 };

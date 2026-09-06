@@ -100,6 +100,17 @@ describe('User routes', () => {
         .expect(httpStatus.BAD_REQUEST);
     });
 
+    test('should return 400 if phoneNumber has no country code', async () => {
+      await insertUsers([superAdmin]);
+      newUser.phoneNumber = '5551234567';
+
+      await request(app)
+        .post('/v1/users')
+        .set('Authorization', `Bearer ${superAdminAccessToken}`)
+        .send(newUser)
+        .expect(httpStatus.BAD_REQUEST);
+    });
+
     test('should be able to create a super_admin as well', async () => {
       await insertUsers([superAdmin]);
       newUser.role = 'super_admin';
